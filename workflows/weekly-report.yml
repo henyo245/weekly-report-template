@@ -1,0 +1,47 @@
+name: Weekly Report Generation
+
+on:
+  schedule:
+    # 週次スケジュール: 月曜日 09:00 JST (00:00 UTC)
+    - cron: '0 0 * * 1'
+  workflow_dispatch: {}
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # Node.js 24 を強制使用
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # コミット・プッシュのため必須
+      issues: read # タスク情報の取得に必要
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_REPO: ${{ github.repository }}
+
+    steps:          
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Fetch tasks
+        run: npm run fetch-tasks
+
+      - name: Generate weekly report
+        run: npm run generate-report:week
+
+      - name: Commit and push reports
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data/reports/
+          git commit -m "Auto-generate weekly report" || echo "No changes to commit"
+          git push
